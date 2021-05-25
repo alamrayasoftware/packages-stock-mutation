@@ -1,0 +1,26 @@
+{
+    "name": "arsoft-modules/stock-mutation",
+    "description": "stock mutation inventory",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "aidensV",
+            "email": "nameblacllis@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "ArsoftModules\\StockMutation\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ArsoftModules\\StockMutation\\StockMutationServiceProvider"
+            ]
+        }
+    }
+}
