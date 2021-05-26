@@ -5,6 +5,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Stock extends Model
 {
-    protected $table = 't_in_stock';
+    protected $table = 'stock';
     protected $primaryKey = 'id';
 }
