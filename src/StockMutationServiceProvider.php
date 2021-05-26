@@ -13,6 +13,9 @@ class StockMutationServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->publishes([
+            __DIR__.'/../migrations/' => database_path('migrations')
+        ], 'migrations');
     }
 
     /**
