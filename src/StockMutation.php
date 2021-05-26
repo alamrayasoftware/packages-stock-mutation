@@ -66,7 +66,7 @@ class StockMutation
             $mutation->date = date("Y-m-d");
             $mutation->qty = $qty;
             $mutation->used = 0;
-            $mutation->reference = $refrence;
+            $mutation->trx_reference = $refrence;
             $mutation->hpp = $hpp;
             $mutation->type = 'in';
             $mutation->note = $note;
@@ -113,22 +113,20 @@ class StockMutation
                 ->whereRaw('(qty - used) > 0')
                 ->where('type', 'in')
                 ->select(DB::raw('sum(qty - used) as total_qty'), 'id', 'qty', 'used', 'stock_id')
+                ->with('stock')
                 ->groupBy('id', 'qty', 'used', 'stock_id')
                 ->oldest()
-                ->with('stock')
                 ->get();
             $updateQty = $qty;
             $currentStock = $stock->qty;
             if ($stock->qty < $qty) {
-                return throw new Exception("Quantity not available", 400);
+                return throw new Exception("Stok item not available", 400);
             }
             foreach ($mutation as $value) {
-
-
                 $valQty = $value->total_qty;
                 if ($updateQty > 0) {
                     $usedQty = 0;
-                    if ($valQty > $updateQty) {
+                    if ($valQty >= $updateQty) {
                         $usedQty = $updateQty;
                     } else {
                         $usedQty = $value->qty;
@@ -149,6 +147,7 @@ class StockMutation
                     $mutation->type = 'out';
                     $mutation->note = $note;
                     $mutation->save();
+
                     $currentStock = $currentStock - $usedQty;
                     $updateQty = $updateQty - $valQty;
                 }
@@ -159,6 +158,46 @@ class StockMutation
             $tempData = new stdClass();
             $tempData->curent_stock = $stock->qty;
             $this->data = $tempData;
+
+            DB::commit();
+            return $this;
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            $this->status = 'error';
+            $this->errorMessage = $th->getMessage();
+            return $this;
+        }
+    }
+
+    public function rollBack(String $refrence)
+    {
+        DB::beginTransaction();
+        try {
+            $mutation = Mutation::where('trx_reference',$refrence)->get();
+            if(count($mutation) < 1){
+                throw new Exception("Data not found", 400);
+                
+            }
+            foreach ($mutation as  $value) {
+                // update mutation where value of trx_refrence
+                $trxReference = Mutation::where('trx_reference',$value->mutation_reference)->first();
+                if(!$trxReference){
+                    throw new Exception("Error data mutation reference not found", 400);
+                }
+                $trxReference->used = ($trxReference->used - $value->qty);
+                $trxReference->update();
+                
+                // delete mutation 
+                $mutationReference = Mutation::where('id',$value->id)->delete();
+                if(!$mutationReference){
+                    throw new Exception("Error data mutation rollback not available", 400);
+                }
+                // update curent stock
+                $stock = Stock::where('id',$value->stock_id)->first();
+                $stock->qty = ($stock->qty + $value->qty);
+                $stock->update();
+                
+            }
             DB::commit();
             return $this;
         } catch (\Throwable $th) {
