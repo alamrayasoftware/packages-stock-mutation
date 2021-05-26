@@ -20,7 +20,10 @@
         "laravel": {
             "providers": [
                 "ArsoftModules\\StockMutation\\StockMutationServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "StockMutation": "ArsoftModules\\StockMutation\\Facades\\StockMutation"
+            }
         }
     }
 }
