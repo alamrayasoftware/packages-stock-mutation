@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use stdClass;
 
 class StockMutation
-{
+{   
     private $status = 'success', $data, $errorMessage;
     public function getStatus()
     {
