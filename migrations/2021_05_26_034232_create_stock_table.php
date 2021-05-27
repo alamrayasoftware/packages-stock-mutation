@@ -15,10 +15,11 @@ class CreateStockTable extends Migration
     {
         Schema::create('stock', function (Blueprint $table) {
             $table->id();
-            $table->integer('company_id')->nullable();
-            $table->integer('position');
-            $table->integer('item_id');
-            $table->integer('qty');
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->unsignedBigInteger('position_id');
+            $table->unsignedBigInteger('item_id');
+            $table->date('expired_date')->nullable();
+            $table->integer('qty')->default(0);
             $table->timestamps();
         });
     }

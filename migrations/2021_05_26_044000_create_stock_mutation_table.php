@@ -19,14 +19,15 @@ class CreateStockMutationTable extends Migration
             $table->date('date');
             $table->integer('qty')->default(0);
             $table->integer('used')->default(0);
-            $table->string('mutation_reference')->nullable();
+            $table->unsignedBigInteger('mutation_reference_id')->nullable();
             $table->string('trx_reference')->nullable();
-            $table->integer('hpp')->nullable();
+            $table->decimal('hpp', 20, 0)->nullable();
             $table->enum('type', ['in', 'out']);
             $table->string('note')->nullable();
             $table->timestamps();
 
             $table->foreign('stock_id')->references('id')->on('stock')->onDelete('cascade');
+            $table->foreign('mutation_reference_id')->references('id')->on('stock_mutation')->onDelete('restrict');
         });
     }
 
