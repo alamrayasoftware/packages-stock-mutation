@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 use stdClass;
 
 class StockMutation
-{   
+{
     private $status = 'success', $data, $errorMessage;
     public function getStatus()
     {
@@ -202,30 +202,41 @@ class StockMutation
     {
         DB::beginTransaction();
         try {
-            $mutation = Mutation::where('trx_reference',$reference)->get();
-            if(count($mutation) < 1){
+            $mutation = Mutation::where('trx_reference', $refrence)->get();
+            if (count($mutation) < 1) {
                 throw new Exception("Data not found", 400);
-                
             }
+
             foreach ($mutation as  $value) {
-                // update mutation where value of trx_reference
-                $trxReference = Mutation::where('trx_reference',$value->mutation_reference)->first();
-                if(!$trxReference){
-                    throw new Exception("Error data mutation reference not found", 400);
+                if ($value->type == 'out') {
+                    // update mutation where value of trx_refrence
+                    $trxReference = Mutation::where('id', $value->mutation_reference_id)->first();
+                    if (!$trxReference) {
+                        throw new Exception("Error data mutation reference not found", 400);
+                    }
+                    $trxReference->used = ($trxReference->used - $value->qty);
+                    $trxReference->update();
+
+                    // update curent stock
+                    $stock = Stock::where('id', $value->stock_id)->first();
+                    $stock->qty = ($stock->qty + $value->qty);
+                    $stock->update();
+                } else if ($value->type == 'in') {
+                    $checkMutation = Mutation::where('mutation_reference_id', $value->id)->exists();
+                    if ($checkMutation) {
+                        throw new Exception("Error data mutation reference cannot rollback", 400);
+                    }
+                     // update curent stock
+                    $stock = Stock::where('id', $value->stock_id)->first();
+                    $stock->qty = ($stock->qty - $value->qty);
+                    $stock->update();
                 }
-                $trxReference->used = ($trxReference->used - $value->qty);
-                $trxReference->update();
-                
+
                 // delete mutation 
-                $mutationReference = Mutation::where('id',$value->id)->delete();
-                if(!$mutationReference){
+                $mutationReference = Mutation::where('id', $value->id)->delete();
+                if (!$mutationReference) {
                     throw new Exception("Error data mutation rollback not available", 400);
                 }
-                // update curent stock
-                $stock = Stock::where('id',$value->stock_id)->first();
-                $stock->qty = ($stock->qty + $value->qty);
-                $stock->update();
-                
             }
             DB::commit();
             return $this;
