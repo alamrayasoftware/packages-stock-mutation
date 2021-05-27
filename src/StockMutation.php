@@ -5,6 +5,7 @@ namespace ArsoftModules\StockMutation;
 use ArsoftModules\StockMutation\Models\Mutation;
 use ArsoftModules\StockMutation\Models\Stock;
 use Exception;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use stdClass;
 
@@ -27,46 +28,51 @@ class StockMutation
     }
 
     /**
-     * @param int $item id item-data
-     * @param string $position position item / warehouse
-     * @param string $qty quantity
-     * @param string $company id company
-     * @param string $refrence refrence of mutation in
-     * @param string $hpp value of cost of goods sold
+     * @param string $itemId item id
+     * @param string $position item position  / warehouse id
+     * @param int $qty quantity
+     * @param string $date transaction date, format: Y-m-d
+     * @param string $companyId company id
+     * @param string $reference nota / reference number / transaction number
+     * @param int $hpp cost of goods sold s
      * @param string $note description
      */
     public function mutationIn(
-        int $item,
-        int $position,
+        string $itemId,
+        string $position,
         int $qty,
-        String $company = null,
-        String $refrence = null,
-        String $hpp = null,
-        String $note = ''
+        string $date,
+        string $companyId = null,
+        string $reference = null,
+        int $hpp = null,
+        string $note = null
     ) {
         DB::BeginTransaction();
         try {
 
-            $stock = Stock::where('company_id', $company)->where('item_id', $item)->where('position', $position)->first();
+            $date = Carbon::parse($date);
+
+            $stock = Stock::where('company_id', $companyId)
+                ->where('item_id', $itemId)
+                ->where('position', $position)
+                ->first();
             if (!$stock) {
                 $stock = new Stock();
+                $stock->company_id = $companyId;
+                $stock->item_id = $itemId;
+                $stock->position = $position;
                 $stock->qty = $qty;
             } else {
-                $stock->qty = (int) $stock->qty + $qty;
+                $stock->qty += $qty;
             }
-            $stock->company_id = $company;
-            $stock->item_id = $item;
-            $stock->position = $position;
             $stock->save();
-
-
 
             $mutation = new Mutation();
             $mutation->stock_id = $stock->id;
-            $mutation->date = date("Y-m-d");
+            $mutation->date = $date;
             $mutation->qty = $qty;
             $mutation->used = 0;
-            $mutation->trx_reference = $refrence;
+            $mutation->trx_reference = $reference;
             $mutation->hpp = $hpp;
             $mutation->type = 'in';
             $mutation->note = $note;
@@ -75,9 +81,8 @@ class StockMutation
             $tempData = new stdClass();
             $tempData->curent_stock = $stock->qty;
 
-
             $this->data = $tempData;
-            Db::commit();
+            DB::commit();
             return $this;
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -88,70 +93,81 @@ class StockMutation
     }
 
     /**
-     * @param int $item id item-data
-     * @param string $position position item / warehouse
-     * @param string $qty quantity
-     * @param string $company id company
-     * @param string $refrence refrence of mutation in
-     * @param string $hpp value of cost of goods sold
+     * @param string $itemId item id
+     * @param string $position item position  / warehouse id
+     * @param int $qty quantity
+     * @param string $date transaction date, format: Y-m-d
+     * @param string $companyId company id
+     * @param string $reference nota / reference number / transaction number
      * @param string $note description
      */
     public function mutationOut(
-        int $item,
-        int $position,
+        string $itemId,
+        string $position,
         int $qty,
-        String $company = null,
-        String $refrence = null,
-        String $hpp = null,
+        string $date,
+        String $companyId = null,
+        String $reference = null,
         String $note = null
     ) {
         DB::beginTransaction();
         try {
-            $stock = Stock::where('company_id', $company)->where('item_id', $item)->where('position', $position)->first();
+            $date = Carbon::parse($date);
 
-            $mutation  = Mutation::where('stock_id', $stock->id)
+            $stock = Stock::where('company_id', $companyId)
+                ->where('item_id', $itemId)
+                ->where('position', $position)
+                ->first();
+
+            if (!$stock) {
+                throw new Exception("Stock not found !", 404);
+            }
+
+            $mutations = Mutation::where('stock_id', $stock->id)
                 ->whereRaw('(qty - used) > 0')
                 ->where('type', 'in')
-                ->select(DB::raw('sum(qty - used) as total_qty'), 'id', 'qty', 'used', 'stock_id')
+                ->select(DB::raw('sum(qty - used) as remaining_qty'), 'id', 'qty', 'used', 'stock_id')
                 ->with('stock')
                 ->groupBy('id', 'qty', 'used', 'stock_id')
                 ->oldest()
                 ->get();
-            $updateQty = $qty;
+                
+            $requestedQty = $qty;
             $currentStock = $stock->qty;
-            if ($stock->qty < $qty) {
-                return throw new Exception("Stok item not available", 400);
+            if ($currentStock < $requestedQty) {
+                throw new Exception("Insufficient stock !", 400);
             }
-            foreach ($mutation as $value) {
-                $valQty = $value->total_qty;
-                if ($updateQty > 0) {
-                    $usedQty = 0;
-                    if ($valQty >= $updateQty) {
-                        $usedQty = $updateQty;
-                    } else {
-                        $usedQty = $value->qty;
-                    }
+            foreach ($mutations as $mutation) {
+                $usedQty = 0;
+                if ($requestedQty < $mutation->remaining_qty) {
+                    $usedQty = $requestedQty;
+                } else {
+                    $usedQty = $mutation->remaining_qty;
+                }
+                
+                $updateMutation = Mutation::where('id', $mutation->id)->first();
+                $updateMutation->used += $usedQty;
+                $updateMutation->update();
 
-                    $updateMutation =  Mutation::where('id', $value->id)->first();
-                    $updateMutation->used += $usedQty;
-                    $updateMutation->update();
+                $newMutation = new Mutation();
+                $newMutation->stock_id = $stock->id;
+                $newMutation->date = $date;
+                $newMutation->qty = $usedQty;
+                $newMutation->used = 0;
+                $newMutation->mutation_reference = $updateMutation->trx_reference;
+                $newMutation->trx_reference = $reference;
+                $newMutation->type = 'out';
+                $newMutation->note = $note;
+                $newMutation->save();
 
-                    $mutation = new Mutation();
-                    $mutation->stock_id = $stock->id;
-                    $mutation->date = date("Y-m-d");
-                    $mutation->qty = $usedQty;
-                    $mutation->used = 0;
-                    $mutation->mutation_reference_id = $updateMutation->id;
-                    $mutation->trx_reference = $refrence;
-                    $mutation->hpp = $hpp;
-                    $mutation->type = 'out';
-                    $mutation->note = $note;
-                    $mutation->save();
-
-                    $currentStock = $currentStock - $usedQty;
-                    $updateQty = $updateQty - $valQty;
+                $requestedQty -= $usedQty;
+                $currentStock -= $usedQty;
+                
+                if ($requestedQty <= 0) {
+                    break;
                 }
             }
+
             $stock->qty = $currentStock;
             $stock->update();
 
@@ -169,7 +185,7 @@ class StockMutation
         }
     }
 
-    public function rollBack(String $refrence)
+    public function rollBack(String $reference)
     {
         DB::beginTransaction();
         try {
