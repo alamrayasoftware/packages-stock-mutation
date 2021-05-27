@@ -202,14 +202,14 @@ class StockMutation
     {
         DB::beginTransaction();
         try {
-            $mutation = Mutation::where('trx_reference', $refrence)->get();
+            $mutation = Mutation::where('trx_reference', $reference)->get();
             if (count($mutation) < 1) {
                 throw new Exception("Data not found", 400);
             }
 
             foreach ($mutation as  $value) {
                 if ($value->type == 'out') {
-                    // update mutation where value of trx_refrence
+                    // update mutation where value of trx_reference
                     $trxReference = Mutation::where('id', $value->mutation_reference_id)->first();
                     if (!$trxReference) {
                         throw new Exception("Error data mutation reference not found", 400);
