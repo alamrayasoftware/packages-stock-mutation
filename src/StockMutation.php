@@ -32,9 +32,10 @@ class StockMutation
      * @param string $position item position  / warehouse id
      * @param int $qty quantity
      * @param string $date transaction date, format: Y-m-d
-     * @param string $companyId company id
+     * @param int $hpp cost of goods solds
      * @param string $reference nota / reference number / transaction number
-     * @param int $hpp cost of goods sold s
+     * @param string $companyId company id
+     * @param string $expiredDate expired date
      * @param string $note description
      */
     public function mutationIn(
@@ -42,9 +43,10 @@ class StockMutation
         string $position,
         int $qty,
         string $date,
+        int $hpp = 0,
+        string $reference,
         string $companyId = null,
-        string $reference = null,
-        int $hpp = null,
+        string $expiredDate = null,
         string $note = null
     ) {
         DB::BeginTransaction();
@@ -54,14 +56,24 @@ class StockMutation
 
             $stock = Stock::where('company_id', $companyId)
                 ->where('item_id', $itemId)
-                ->where('position', $position)
-                ->first();
+                ->where('position', $position);
+
+            if ($expiredDate) {
+                $expiredDate = Carbon::parse($expiredDate);
+                $stock = $stock->whereDate('expired_date', $expiredDate);
+            } else {
+                $stock = $stock->whereNull('expired_date');
+            }
+
+            $stock = $stock->first();
+
             if (!$stock) {
                 $stock = new Stock();
                 $stock->company_id = $companyId;
                 $stock->item_id = $itemId;
                 $stock->position = $position;
                 $stock->qty = $qty;
+                $stock->expired_date = $expiredDate;
             } else {
                 $stock->qty += $qty;
             }
@@ -117,13 +129,15 @@ class StockMutation
             $stock = Stock::where('company_id', $companyId)
                 ->where('item_id', $itemId)
                 ->where('position', $position)
-                ->first();
+                ->where('qty', '>', 0)
+                ->get();
 
-            if (!$stock) {
+            if (count($stock) < 0) {
                 throw new Exception("Stock not found !", 404);
             }
 
-            $mutations = Mutation::where('stock_id', $stock->id)
+            $listStockId = $stock->pluck('id')->all();
+            $mutations = Mutation::whereIn('stock_id', $listStockId)
                 ->whereRaw('(qty - used) > 0')
                 ->where('type', 'in')
                 ->select(DB::raw('sum(qty - used) as remaining_qty'), 'id', 'qty', 'used', 'stock_id')
@@ -133,7 +147,7 @@ class StockMutation
                 ->get();
                 
             $requestedQty = $qty;
-            $currentStock = $stock->qty;
+            $currentStock = $stock->sum('qty');
             if ($currentStock < $requestedQty) {
                 throw new Exception("Insufficient stock !", 400);
             }
@@ -149,30 +163,29 @@ class StockMutation
                 $updateMutation->used += $usedQty;
                 $updateMutation->update();
 
+                $updateStock = Stock::where('id', $updateMutation->stock_id)->first();
+                $updateStock->qty -= $usedQty;
+                $updateStock->update();
+
                 $newMutation = new Mutation();
-                $newMutation->stock_id = $stock->id;
+                $newMutation->stock_id = $updateMutation->stock_id;
                 $newMutation->date = $date;
                 $newMutation->qty = $usedQty;
                 $newMutation->used = 0;
-                $newMutation->mutation_reference = $updateMutation->trx_reference;
+                $newMutation->mutation_reference_id = $updateMutation->id;
                 $newMutation->trx_reference = $reference;
                 $newMutation->type = 'out';
                 $newMutation->note = $note;
                 $newMutation->save();
 
                 $requestedQty -= $usedQty;
-                $currentStock -= $usedQty;
                 
                 if ($requestedQty <= 0) {
                     break;
                 }
             }
 
-            $stock->qty = $currentStock;
-            $stock->update();
-
             $tempData = new stdClass();
-            $tempData->curent_stock = $stock->qty;
             $this->data = $tempData;
 
             DB::commit();
