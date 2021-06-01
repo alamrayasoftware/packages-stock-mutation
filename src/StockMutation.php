@@ -58,7 +58,7 @@ class StockMutation
 
             $stock = Stock::where('company_id', $companyId)
                 ->where('item_id', $itemId)
-                ->where('position', $position);
+                ->where('position_id', $position);
 
             if ($expiredDate) {
                 $expiredDate = Carbon::parse($expiredDate);
@@ -73,7 +73,7 @@ class StockMutation
                 $stock = new Stock();
                 $stock->company_id = $companyId;
                 $stock->item_id = $itemId;
-                $stock->position = $position;
+                $stock->position_id = $position;
                 $stock->qty = $qty;
                 $stock->expired_date = $expiredDate;
             } else {
@@ -130,7 +130,7 @@ class StockMutation
 
             $stock = Stock::where('company_id', $companyId)
                 ->where('item_id', $itemId)
-                ->where('position', $position)
+                ->where('position_id', $position)
                 ->where('qty', '>', 0)
                 ->get();
 
@@ -293,7 +293,7 @@ class StockMutation
                 $mutation = $mutation->where('item_id', $itemId);
             }
             if ($position != null) {
-                $mutation = $mutation->where('position', $position);
+                $mutation = $mutation->where('position_id', $position);
             }
             if ($companyId != null) {
                 $mutation = $mutation->where('company_id', $companyId);
