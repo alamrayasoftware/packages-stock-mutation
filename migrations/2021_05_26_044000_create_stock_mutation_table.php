@@ -13,7 +13,7 @@ class CreateStockMutationTable extends Migration
      */
     public function up()
     {
-        Schema::create('stock_mutation', function (Blueprint $table) {
+        Schema::create('stock_mutations', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('stock_id');
             $table->date('date');
@@ -26,8 +26,8 @@ class CreateStockMutationTable extends Migration
             $table->string('note')->nullable();
             $table->timestamps();
 
-            $table->foreign('stock_id')->references('id')->on('stock')->onDelete('cascade');
-            $table->foreign('mutation_reference_id')->references('id')->on('stock_mutation')->onDelete('restrict');
+            $table->foreign('stock_id')->references('id')->on('stocks')->onDelete('cascade');
+            $table->foreign('mutation_reference_id')->references('id')->on('stock_mutations')->onDelete('restrict');
         });
     }
 
@@ -38,6 +38,6 @@ class CreateStockMutationTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('stock_mutation');
+        Schema::dropIfExists('stock_mutations');
     }
 }

@@ -2,12 +2,14 @@
 
 namespace ArsoftModules\StockMutation;
 
-use ArsoftModules\StockMutation\Models\Mutation;
+use ArsoftModules\StockMutation\Models\StockMutation as Mutation;
 use ArsoftModules\StockMutation\Models\Stock;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use stdClass;
+
+use function PHPUnit\Framework\throwException;
 
 class StockMutation
 {
@@ -44,7 +46,7 @@ class StockMutation
         int $qty,
         string $date,
         int $hpp = 0,
-        string $reference,
+        string $reference = null,
         string $companyId = null,
         string $expiredDate = null,
         string $note = null
@@ -56,7 +58,7 @@ class StockMutation
 
             $stock = Stock::where('company_id', $companyId)
                 ->where('item_id', $itemId)
-                ->where('position', $position);
+                ->where('position_id', $position);
 
             if ($expiredDate) {
                 $expiredDate = Carbon::parse($expiredDate);
@@ -71,7 +73,7 @@ class StockMutation
                 $stock = new Stock();
                 $stock->company_id = $companyId;
                 $stock->item_id = $itemId;
-                $stock->position = $position;
+                $stock->position_id = $position;
                 $stock->qty = $qty;
                 $stock->expired_date = $expiredDate;
             } else {
@@ -128,7 +130,7 @@ class StockMutation
 
             $stock = Stock::where('company_id', $companyId)
                 ->where('item_id', $itemId)
-                ->where('position', $position)
+                ->where('position_id', $position)
                 ->where('qty', '>', 0)
                 ->get();
 
@@ -145,7 +147,7 @@ class StockMutation
                 ->groupBy('id', 'qty', 'used', 'stock_id')
                 ->oldest()
                 ->get();
-                
+
             $requestedQty = $qty;
             $currentStock = $stock->sum('qty');
             if ($currentStock < $requestedQty) {
@@ -158,7 +160,7 @@ class StockMutation
                 } else {
                     $usedQty = $mutation->remaining_qty;
                 }
-                
+
                 $updateMutation = Mutation::where('id', $mutation->id)->first();
                 $updateMutation->used += $usedQty;
                 $updateMutation->update();
@@ -179,7 +181,7 @@ class StockMutation
                 $newMutation->save();
 
                 $requestedQty -= $usedQty;
-                
+
                 if ($requestedQty <= 0) {
                     break;
                 }
@@ -226,7 +228,7 @@ class StockMutation
                     if ($checkMutation) {
                         throw new Exception("Error data mutation reference cannot rollback", 400);
                     }
-                     // update curent stock
+                    // update curent stock
                     $stock = Stock::where('id', $value->stock_id)->first();
                     $stock->qty = ($stock->qty - $value->qty);
                     $stock->update();
@@ -245,6 +247,95 @@ class StockMutation
             $this->status = 'error';
             $this->errorMessage = $th->getMessage();
             return $this;
+        }
+    }
+
+    /**
+     * @param string $type type mutation equal in/out
+     * @param int $itemId by item
+     * @param int $position position item or warehouse
+     * @param int $companyId id company
+     * @param string $reference nota / reference number / transaction number
+     */
+
+    public function history(
+        String $type = 'in',
+        int $itemId = null,
+        int $position = null,
+        int $companyId = null,
+        String $reference = null,
+        $date_start = null,
+        $date_end = null
+    ) {
+
+
+        try {
+            if ($date_start) {
+                $date_start = $this->formatDate($date_start);
+                if (!$date_start) {
+                    throw new Exception('Format date invalid, please use dd/mm/yyyy');
+                }
+            }
+            if ($date_end) {
+                $date_end = $this->formatDate($date_end);
+                if (!$date_end) {
+                    throw new Exception('Format date invalid, please use dd/mm/yyyy');
+                }
+            }
+
+            $mutation = Mutation::join('stock', 'stock_mutation.id', 'stock_id')
+                ->where('type', $type);
+
+            if ($reference != null) {
+                $mutation = $mutation->where('trx_reference', $reference);
+            }
+            if ($itemId != null) {
+                $mutation = $mutation->where('item_id', $itemId);
+            }
+            if ($position != null) {
+                $mutation = $mutation->where('position_id', $position);
+            }
+            if ($companyId != null) {
+                $mutation = $mutation->where('company_id', $companyId);
+            }
+            if($date_start != null && $date_end != null){
+                $mutation = $mutation->whereBetween('stock_mutation.created_at', [$date_start,$date_end]);
+            }
+           
+
+            $mutation = $mutation->get();
+
+            $this->data = $mutation;
+
+            return $this;
+        } catch (\Throwable $th) {
+            $this->status = 'error';
+            $this->errorMessage = $th->getMessage();
+            return $this;
+        }
+    }
+
+    public function formatDate($date)
+    {
+        try {
+            if ($date) {
+                $date = explode('/', $date);
+
+                if (strlen($date[2]) < 4) {
+                    throw new Exception();
+                }
+                if (strlen($date[1]) < 2 || $date[1] > 12) {
+                    throw new Exception();
+                }
+                if (strlen($date[0]) < 2) {
+                    throw new Exception();
+                }
+                $date = $date[2] . '-' . $date[1] . '-' . $date[0];
+                $new_date = date('Y-m-d', strtotime($date));
+                return $new_date;
+            }
+        } catch (\Throwable $th) {
+            return false;
         }
     }
 }
