@@ -3,7 +3,7 @@ namespace ArsoftModules\StockMutation\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Mutation extends Model
+class StockMutation extends Model
 {
     public function stock()
     {

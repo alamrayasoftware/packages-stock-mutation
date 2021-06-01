@@ -2,7 +2,7 @@
 
 namespace ArsoftModules\StockMutation;
 
-use ArsoftModules\StockMutation\Models\Mutation;
+use ArsoftModules\StockMutation\Models\StockMutation as Mutation;
 use ArsoftModules\StockMutation\Models\Stock;
 use Exception;
 use Illuminate\Support\Carbon;
