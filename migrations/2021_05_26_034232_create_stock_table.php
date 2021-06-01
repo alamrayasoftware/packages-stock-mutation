@@ -13,7 +13,7 @@ class CreateStockTable extends Migration
      */
     public function up()
     {
-        Schema::create('stock', function (Blueprint $table) {
+        Schema::create('stocks', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('company_id')->nullable();
             $table->unsignedBigInteger('position_id');
@@ -31,6 +31,6 @@ class CreateStockTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('stock');
+        Schema::dropIfExists('stocks');
     }
 }
