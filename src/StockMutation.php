@@ -30,24 +30,24 @@ class StockMutation
     }
 
     /**
-     * @param string $itemId item id
-     * @param string $position item position  / warehouse id
+     * @param int $itemId item id
+     * @param int $position item position  / warehouse id
      * @param int $qty quantity
      * @param string $date transaction date, format: Y-m-d
      * @param int $hpp cost of goods solds
      * @param string $reference nota / reference number / transaction number
-     * @param string $companyId company id
+     * @param int $companyId company id
      * @param string $expiredDate expired date
      * @param string $note description
      */
     public function mutationIn(
-        string $itemId,
-        string $position,
+        int $itemId,
+        int $position,
         int $qty,
         string $date,
         int $hpp = 0,
         string $reference = null,
-        string $companyId = null,
+        int $companyId = null,
         string $expiredDate = null,
         string $note = null
     ) {
@@ -57,8 +57,8 @@ class StockMutation
             $date = Carbon::parse($date);
 
             $stock = Stock::where('company_id', $companyId)
-                ->where('item_id', $itemId)
-                ->where('position_id', $position);
+                ->where('position_id', $position)
+                ->where('item_id', $itemId);
 
             if ($expiredDate) {
                 $expiredDate = Carbon::parse($expiredDate);
@@ -107,20 +107,20 @@ class StockMutation
     }
 
     /**
-     * @param string $itemId item id
-     * @param string $position item position  / warehouse id
+     * @param int $itemId item id
+     * @param int $position item position  / warehouse id
      * @param int $qty quantity
      * @param string $date transaction date, format: Y-m-d
-     * @param string $companyId company id
+     * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
      * @param string $note description
      */
     public function mutationOut(
-        string $itemId,
-        string $position,
+        int $itemId,
+        int $position,
         int $qty,
         string $date,
-        String $companyId = null,
+        int $companyId = null,
         String $reference = null,
         String $note = null
     ) {
@@ -129,13 +129,19 @@ class StockMutation
             $date = Carbon::parse($date);
 
             $stock = Stock::where('company_id', $companyId)
-                ->where('item_id', $itemId)
                 ->where('position_id', $position)
+                ->where('item_id', $itemId)
                 ->where('qty', '>', 0)
                 ->get();
 
-            if (count($stock) < 0) {
+            if (count($stock) <= 0) {
                 throw new Exception("Stock not found !", 404);
+            }
+
+            $requestedQty = $qty;
+            $currentStock = $stock->sum('qty');
+            if ($currentStock < $requestedQty) {
+                throw new Exception("Insufficient stock !", 400);
             }
 
             $listStockId = $stock->pluck('id')->all();
@@ -148,11 +154,6 @@ class StockMutation
                 ->oldest()
                 ->get();
 
-            $requestedQty = $qty;
-            $currentStock = $stock->sum('qty');
-            if ($currentStock < $requestedQty) {
-                throw new Exception("Insufficient stock !", 400);
-            }
             foreach ($mutations as $mutation) {
                 $usedQty = 0;
                 if ($requestedQty < $mutation->remaining_qty) {
@@ -209,12 +210,12 @@ class StockMutation
                 throw new Exception("Data not found", 400);
             }
 
-            foreach ($mutation as  $value) {
+            foreach ($mutation as $value) {
                 if ($value->type == 'out') {
                     // update mutation where value of trx_reference
                     $trxReference = Mutation::where('id', $value->mutation_reference_id)->first();
                     if (!$trxReference) {
-                        throw new Exception("Error data mutation reference not found", 400);
+                        throw new Exception("Mutation reference not found !", 404);
                     }
                     $trxReference->used = ($trxReference->used - $value->qty);
                     $trxReference->update();
@@ -224,9 +225,10 @@ class StockMutation
                     $stock->qty = ($stock->qty + $value->qty);
                     $stock->update();
                 } else if ($value->type == 'in') {
-                    $checkMutation = Mutation::where('mutation_reference_id', $value->id)->exists();
-                    if ($checkMutation) {
-                        throw new Exception("Error data mutation reference cannot rollback", 400);
+                    // check reference mutation
+                    $referenceMutation = Mutation::where('mutation_reference_id', $value->id)->first();
+                    if ($referenceMutation) {
+                        throw new Exception("Mutation is already used by ( " . $referenceMutation->trx_reference . " )", 403);
                     }
                     // update curent stock
                     $stock = Stock::where('id', $value->stock_id)->first();
@@ -237,7 +239,7 @@ class StockMutation
                 // delete mutation 
                 $mutationReference = Mutation::where('id', $value->id)->delete();
                 if (!$mutationReference) {
-                    throw new Exception("Error data mutation rollback not available", 400);
+                    throw new Exception("Delete mutation failed !", 500);
                 }
             }
             DB::commit();
