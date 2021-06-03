@@ -30,7 +30,7 @@ class StockMutation
 
     /**
      * @param int $itemId item id
-     * @param int $position item position  / warehouse id
+     * @param int $position item position / warehouse id
      * @param int $qty quantity
      * @param string $date transaction date, format: Y-m-d
      * @param int $hpp cost of goods solds
@@ -255,34 +255,34 @@ class StockMutation
     }
 
     /**
-     * @param string $type type mutation equal in/out
-     * @param int $itemId by item
-     * @param int $position position item or warehouse
-     * @param int $companyId id company
+     * @param string $type mutation type, option 'in', 'out'
+     * @param int $itemId item id
+     * @param int $position item position / warehouse id
+     * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
+     * @param string $dateStart start date, format: dd/mm/yyyy
+     * @param string $dateEnd end date, format: dd/mm/yyyy
      */
 
     public function history(
-        String $type = 'in',
+        string $type = 'in',
         int $itemId = null,
         int $position = null,
         int $companyId = null,
-        String $reference = null,
-        $date_start = null,
-        $date_end = null
+        string $reference = null,
+        string $dateStart = null,
+        string $dateEnd = null
     ) {
-
-
         try {
-            if ($date_start) {
-                $date_start = $this->formatDate($date_start);
-                if (!$date_start) {
+            if ($dateStart) {
+                $dateStart = $this->formatDate($dateStart);
+                if (!$dateStart) {
                     throw new Exception('Format date invalid, please use dd/mm/yyyy');
                 }
             }
-            if ($date_end) {
-                $date_end = $this->formatDate($date_end);
-                if (!$date_end) {
+            if ($dateEnd) {
+                $dateEnd = $this->formatDate($dateEnd);
+                if (!$dateEnd) {
                     throw new Exception('Format date invalid, please use dd/mm/yyyy');
                 }
             }
@@ -302,10 +302,9 @@ class StockMutation
             if ($companyId != null) {
                 $mutation = $mutation->where('company_id', $companyId);
             }
-            if($date_start != null && $date_end != null){
-                $mutation = $mutation->whereBetween('stock_mutation.created_at', [$date_start,$date_end]);
+            if ($dateStart != null && $dateEnd != null) {
+                $mutation = $mutation->whereBetween('stock_mutation.created_at', [$dateStart, $dateEnd]);
             }
-           
 
             $mutation = $mutation->get();
 
