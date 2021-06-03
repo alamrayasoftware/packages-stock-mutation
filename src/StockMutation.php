@@ -287,26 +287,28 @@ class StockMutation
                 }
             }
 
-            $mutation = Mutation::join('stock', 'stock_mutation.id', 'stock_id')
-                ->where('type', $type);
+            $mutation = Mutation::where('type', $type)
+                ->whereHas('stock', function ($q) use ($itemId, $position, $companyId, $dateStart, $dateEnd) {
+                    if ($itemId != null) {
+                        $q->where('item_id', $itemId);
+                    }
+                    if ($position != null) {
+                        $q->where('position_id', $position);
+                    }
+                    if ($companyId != null) {
+                        $q->where('company_id', $companyId);
+                    }
+                    if ($dateStart != null && $dateEnd != null) {
+                        $q->whereBetween('stock_mutations.created_at', [$dateStart, $dateEnd]);
+                    }
+                });
 
             if ($reference != null) {
                 $mutation = $mutation->where('trx_reference', $reference);
             }
-            if ($itemId != null) {
-                $mutation = $mutation->where('item_id', $itemId);
-            }
-            if ($position != null) {
-                $mutation = $mutation->where('position_id', $position);
-            }
-            if ($companyId != null) {
-                $mutation = $mutation->where('company_id', $companyId);
-            }
-            if ($dateStart != null && $dateEnd != null) {
-                $mutation = $mutation->whereBetween('stock_mutation.created_at', [$dateStart, $dateEnd]);
-            }
 
-            $mutation = $mutation->get();
+            $mutation = $mutation->with('stock')
+                ->get();
 
             $this->data = $mutation;
 
