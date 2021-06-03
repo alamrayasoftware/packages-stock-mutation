@@ -28,7 +28,7 @@ class StockMutationServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->singleton('stockmutation', function() {
+        $this->app->bind('stockmutation', function() {
             return new StockMutation();
         });
       
