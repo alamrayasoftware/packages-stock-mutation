@@ -2,6 +2,7 @@
 
 namespace ArsoftModules\StockMutation;
 
+use ArsoftModules\StockMutation\StockMutation;
 use Illuminate\Support\ServiceProvider;
 
 class StockMutationServiceProvider extends ServiceProvider
