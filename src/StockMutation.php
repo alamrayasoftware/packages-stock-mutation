@@ -9,11 +9,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use stdClass;
 
-use function PHPUnit\Framework\throwException;
-
 class StockMutation
 {
     private $status = 'success', $data, $errorMessage;
+
     public function getStatus()
     {
         return $this->status;
@@ -37,7 +36,7 @@ class StockMutation
      * @param int $hpp cost of goods solds
      * @param string $reference nota / reference number / transaction number
      * @param int $companyId company id
-     * @param string $expiredDate expired date
+     * @param string $expiredDate expired date, format: Y-m-d
      * @param string $note description
      */
     public function mutationIn(
@@ -201,6 +200,9 @@ class StockMutation
         }
     }
 
+    /**
+     * @param string $reference nota / reference number / transaction number
+     */
     public function rollBack(String $reference)
     {
         DB::beginTransaction();
