@@ -320,6 +320,42 @@ class StockMutation
         }
     }
 
+    /**
+     * @param int $itemId item id
+     * @param int $position item position / warehouse id
+     * @param int $companyId company id
+     */
+    public function currentStock(
+        $itemId,
+        $companyId = null,
+        $positionId = null
+    ) {
+        try {
+            $stock = Stock::where('item_id', $itemId);
+
+            if ($companyId) {
+                $stock = $stock->where('company_id', $companyId);
+            }
+            if ($positionId) {
+                $stock = $stock->where('position_id', $positionId);
+            }
+            $stock = $stock->get();
+
+            $totalStock = $stock->sum('qty');
+
+            $tempData = new stdClass();
+            $tempData->curent_stock = $totalStock;
+            $tempData->list_stock = $stock;
+
+            $this->data = $tempData;
+            return $this;
+        } catch (\Throwable $th) {
+            $this->status = 'error';
+            $this->errorMessage = $th->getMessage();
+            return $this;
+        }
+    }
+
     public function formatDate($date)
     {
         try {
