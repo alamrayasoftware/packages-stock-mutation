@@ -326,13 +326,16 @@ class StockMutation
      * @param int $companyId company id
      */
     public function currentStock(
-        $itemId,
+        $itemId = null,
         $companyId = null,
         $positionId = null
     ) {
         try {
-            $stock = Stock::where('item_id', $itemId);
-
+            $stock = Stock::orderBy('expired_date');
+            
+            if($itemId){
+                $stock = $stock->where('item_id', $itemId);
+            }
             if ($companyId) {
                 $stock = $stock->where('company_id', $companyId);
             }
