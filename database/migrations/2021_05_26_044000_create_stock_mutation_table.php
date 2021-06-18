@@ -17,11 +17,11 @@ class CreateStockMutationTable extends Migration
             $table->id();
             $table->unsignedBigInteger('stock_id');
             $table->date('date');
-            $table->integer('qty')->default(0);
-            $table->integer('used')->default(0);
+            $table->decimal('qty', 20, 2)->default(0);
+            $table->decimal('used', 20, 2)->default(0);
             $table->unsignedBigInteger('mutation_reference_id')->nullable();
             $table->string('trx_reference')->nullable();
-            $table->decimal('hpp', 20, 0)->nullable();
+            $table->decimal('hpp', 20, 2)->nullable();
             $table->enum('type', ['in', 'out']);
             $table->string('note')->nullable();
             $table->timestamps();

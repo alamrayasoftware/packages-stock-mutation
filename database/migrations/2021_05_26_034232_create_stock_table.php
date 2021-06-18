@@ -19,7 +19,7 @@ class CreateStockTable extends Migration
             $table->unsignedBigInteger('position_id');
             $table->unsignedBigInteger('item_id');
             $table->date('expired_date')->nullable();
-            $table->integer('qty')->default(0);
+            $table->decimal('qty', 20, 2)->default(0);
             $table->timestamps();
         });
     }

@@ -31,9 +31,9 @@ class StockMutation
     /**
      * @param int $itemId item id
      * @param int $position item position / warehouse id
-     * @param int $qty quantity
+     * @param float $qty quantity, exp: 12000.57
      * @param string $date transaction date, format: Y-m-d
-     * @param int $hpp cost of goods solds
+     * @param float $hpp cost of goods solds, exp: 12000.57
      * @param string $reference nota / reference number / transaction number
      * @param int $companyId company id
      * @param string $expiredDate expired date, format: Y-m-d
@@ -42,9 +42,9 @@ class StockMutation
     public function mutationIn(
         int $itemId,
         int $position,
-        int $qty,
+        float $qty,
         string $date,
-        int $hpp = 0,
+        float $hpp = 0,
         string $reference = null,
         int $companyId = null,
         string $expiredDate = null,
@@ -108,7 +108,7 @@ class StockMutation
     /**
      * @param int $itemId item id
      * @param int $position item position  / warehouse id
-     * @param int $qty quantity
+     * @param float $qty quantity, exp: 12000.57
      * @param string $date transaction date, format: Y-m-d
      * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
@@ -117,7 +117,7 @@ class StockMutation
     public function mutationOut(
         int $itemId,
         int $position,
-        int $qty,
+        float $qty,
         string $date,
         int $companyId = null,
         String $reference = null,
