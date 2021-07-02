@@ -4,11 +4,11 @@ namespace ArsoftModules\StockMutation;
 
 use ArsoftModules\StockMutation\Models\StockMutation as Mutation;
 use ArsoftModules\StockMutation\Models\Stock;
+use ArsoftModules\StockMutation\Models\stock_periods;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use stdClass;
-
 class StockMutation
 {
     private $status = 'success', $data, $errorMessage;
@@ -91,6 +91,7 @@ class StockMutation
             $mutation->note = $note;
             $mutation->save();
 
+            $this->insertStockPeriode($stock->id, $date);
             $tempData = new stdClass();
             $tempData->curent_stock = $stock->qty;
 
@@ -186,7 +187,7 @@ class StockMutation
                     break;
                 }
             }
-
+            $this->insertStockPeriode($stock->id, $date);
             $tempData = new stdClass();
             $this->data = $tempData;
 
@@ -244,6 +245,7 @@ class StockMutation
                     throw new Exception("Delete mutation failed !", 500);
                 }
             }
+            $this->insertStockPeriode($mutation[0]->stock_id, $mutation[0]->date);
             DB::commit();
             return $this;
         } catch (\Throwable $th) {
@@ -313,6 +315,52 @@ class StockMutation
             $this->data = $mutation;
 
             return $this;
+        } catch (\Throwable $th) {
+            $this->status = 'error';
+            $this->errorMessage = $th->getMessage();
+            return $this;
+        }
+    }
+
+    public function insertStockPeriode($stockId, $period)
+    {
+        try {
+            $period = Carbon::parse($period);
+
+            $monthNow = $period->format('m');
+            $yearNow = $period->format('Y');
+            $monthPrev = $period->copy()->subMonth()->format('m');
+            $yearPrev = $period->copy()->subMonth()->format('Y');
+
+            $mutIn =  Mutation::where('stock_id', $stockId)->whereMonth('date', $monthNow)->whereYear('date', $yearNow)->where('type', 'in')->sum('qty');
+            $mutOut =  Mutation::where('stock_id', $stockId)->whereMonth('date', $monthNow)->whereYear('date', $yearNow)->where('type', 'out')->sum('qty');
+            $mutInPrev =  Mutation::where('stock_id', $stockId)->whereMonth('date', $monthPrev)->whereYear('date', $yearPrev)->where('type', 'in')->sum('qty');
+            $mutOutPrev =  Mutation::where('stock_id', $stockId)->whereMonth('date', $monthPrev)->whereYear('date', $yearPrev)->where('type', 'out')->sum('qty');
+
+            $openingStock = $mutInPrev - $mutOutPrev;
+            $stockPeriode = stock_periods::where('stock_id', $stockId)
+                ->whereMonth('period', $monthNow)
+                ->whereYear('period', $yearNow)
+                ->first();
+
+            if (!$stockPeriode) {
+                $stockPeriode = new stock_periods();
+            }
+
+            $stockPeriode->stock_id = $stockId;
+            $stockPeriode->period = $period->copy()->startOfMonth();
+            $stockPeriode->opening_stock = $openingStock;
+            $stockPeriode->total_stock_in = $mutIn;
+            $stockPeriode->total_stock_out = $mutOut;
+            $stockPeriode->closing_stock = $mutIn - $mutOut;
+            $stockPeriode->save();
+
+            if ($period->copy()->startOfMonth()->eq(Carbon::now()->startOfMonth()) || $period->copy()->startOfMonth()->gt(Carbon::now()->startOfMonth())) {
+                return 'success';
+            } else {
+                $this->insertStockPeriode($stockId, $period->copy()->addMonth());
+                
+            }
         } catch (\Throwable $th) {
             $this->status = 'error';
             $this->errorMessage = $th->getMessage();
