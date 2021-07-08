@@ -4,7 +4,7 @@ namespace ArsoftModules\StockMutation;
 
 use ArsoftModules\StockMutation\Models\StockMutation as Mutation;
 use ArsoftModules\StockMutation\Models\Stock;
-use ArsoftModules\StockMutation\Models\stock_periods;
+use ArsoftModules\StockMutation\Models\StockPeriod;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -338,13 +338,13 @@ class StockMutation
             $mutOutPrev =  Mutation::where('stock_id', $stockId)->whereMonth('date', $monthPrev)->whereYear('date', $yearPrev)->where('type', 'out')->sum('qty');
 
             $openingStock = $mutInPrev - $mutOutPrev;
-            $stockPeriode = stock_periods::where('stock_id', $stockId)
+            $stockPeriode = StockPeriod::where('stock_id', $stockId)
                 ->whereMonth('period', $monthNow)
                 ->whereYear('period', $yearNow)
                 ->first();
 
             if (!$stockPeriode) {
-                $stockPeriode = new stock_periods();
+                $stockPeriode = new StockPeriod();
             }
 
             $stockPeriode->stock_id = $stockId;
