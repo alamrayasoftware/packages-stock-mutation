@@ -322,6 +322,10 @@ class StockMutation
         }
     }
 
+    /**
+     * @param int $stockId stock id
+     * @param string $period date period, date_format: Y-m-d
+     */
     public function insertStockPeriode($stockId, $period)
     {
         try {
