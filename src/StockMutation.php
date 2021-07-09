@@ -360,7 +360,7 @@ class StockMutation
             $stockPeriod->opening_stock = $openingStock;
             $stockPeriod->total_stock_in = $totalMutationIn;
             $stockPeriod->total_stock_out = $totalMutationOut;
-            $stockPeriod->closing_stock = $totalMutationIn - $totalMutationOut;
+            $stockPeriod->closing_stock = $openingStock + ($totalMutationIn - $totalMutationOut);
             $stockPeriod->save();
 
             if ($period->copy()->startOfMonth()->eq(Carbon::now()->startOfMonth()) || $period->copy()->startOfMonth()->gt(Carbon::now()->startOfMonth())) {
