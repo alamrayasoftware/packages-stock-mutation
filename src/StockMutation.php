@@ -187,7 +187,9 @@ class StockMutation
                     break;
                 }
             }
-            $this->insertStockPeriode($stock->id, $date);
+            foreach ($listStockId as $key => $stockId) {
+                $this->insertStockPeriode($stockId, $date);
+            }
             $tempData = new stdClass();
             $this->data = $tempData;
 
