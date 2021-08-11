@@ -362,7 +362,8 @@ class StockMutation
                 // whereMonth('period', $monthPrev)
                 // ->whereYear('period', $yearPrev)
                 // whereDate('period', $datePrev)
-                latest()
+                where('stock_id', $stockId)
+                ->latest()
                 ->first();
 
             if ($stockPeriodPrev) {
@@ -372,8 +373,8 @@ class StockMutation
             $stockPeriod = StockPeriod::where('stock_id', $stockId)
                 // ->whereMonth('period', $monthNow)
                 // ->whereYear('period', $yearNow)
-                // ->whereDate('period', $datePrev)
-                ->latest()
+                ->whereDate('period', $dateNow)
+                // ->latest()
                 ->first();
 
             if (!$stockPeriod) {
