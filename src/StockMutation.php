@@ -9,6 +9,7 @@ use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use stdClass;
+
 class StockMutation
 {
     private $status = 'success', $data, $errorMessage;
@@ -335,56 +336,63 @@ class StockMutation
 
             $monthNow = $period->format('m');
             $yearNow = $period->format('Y');
-            $dateNow = $period->format('d');
+            $dateNow = $period;
             $monthPrev = $period->copy()->subDay()->format('m');
             $yearPrev = $period->copy()->subDay()->format('Y');
-            $datePrev = $period->copy()->subDay()->format('d');
+            $datePrev = $period->copy()->subDay();
 
             $totalMutationIn =  Mutation::where('stock_id', $stockId)
-            ->whereMonth('date', $monthNow)
-            ->whereYear('date', $yearNow)
-            ->whereDate('date',$dateNow)
-            ->where('type', 'in')
-            ->sum('qty');
+                // ->whereMonth('date', $monthNow)
+                // ->whereYear('date', $yearNow)
+                // ->whereDate('date', $dateNow)
+                ->where('type', 'in')
+                ->latest()
+                ->sum('qty');
 
             $totalMutationOut =  Mutation::where('stock_id', $stockId)
-            ->whereMonth('date', $monthNow)
-            ->whereYear('date', $yearNow)
-            ->whereDate('date',$dateNow)
-            ->where('type', 'out')
-            ->sum('qty');
+                // ->whereMonth('date', $monthNow)
+                // ->whereYear('date', $yearNow)
+                // ->whereDate('date', $dateNow)
+                ->where('type', 'out')
+                ->latest()
+                ->sum('qty');
 
             $openingStock = 0;
-            $stockPeriodPrev = StockPeriod::whereMonth('period', $monthPrev)
-                ->whereYear('period', $yearPrev)
-                ->whereDate('period',$datePrev)
+            $stockPeriodPrev = StockPeriod::
+                // whereMonth('period', $monthPrev)
+                // ->whereYear('period', $yearPrev)
+                // whereDate('period', $datePrev)
+                latest()
                 ->first();
+
             if ($stockPeriodPrev) {
                 $openingStock = $stockPeriodPrev->closing_stock;
             }
 
             $stockPeriod = StockPeriod::where('stock_id', $stockId)
-                ->whereMonth('period', $monthNow)
-                ->whereYear('period', $yearNow)
-                ->whereDate('period',$datePrev)
+                // ->whereMonth('period', $monthNow)
+                // ->whereYear('period', $yearNow)
+                // ->whereDate('period', $datePrev)
+                ->latest()
                 ->first();
+
             if (!$stockPeriod) {
                 $stockPeriod = new StockPeriod();
             }
 
             $stockPeriod->stock_id = $stockId;
-            $stockPeriod->period = $period->copy();
+            $stockPeriod->period = Carbon::now();
             $stockPeriod->opening_stock = $openingStock;
             $stockPeriod->total_stock_in = $totalMutationIn;
             $stockPeriod->total_stock_out = $totalMutationOut;
             $stockPeriod->closing_stock = $openingStock + ($totalMutationIn - $totalMutationOut);
             $stockPeriod->save();
-
-            if ($period->copy()->eq(Carbon::now()) || $period->copy()->gt(Carbon::now())) {
-                return 'success';
-            } else {
-                $this->insertStockPeriode($stockId, $period->copy()->addDay());
-            }
+            return 'success';
+            // if ($period->copy()->eq(Carbon::now()) || $period->copy()->gt(Carbon::now())) {
+            //     return 'success';
+            // } else {
+            //     $this->insertStockPeriode($stockId, $period->copy()->subDay());
+            // }
         } catch (\Throwable $th) {
             $this->status = 'error';
             $this->errorMessage = $th->getMessage();
@@ -404,8 +412,8 @@ class StockMutation
     ) {
         try {
             $stock = Stock::orderBy('expired_date');
-            
-            if($itemId){
+
+            if ($itemId) {
                 $stock = $stock->where('item_id', $itemId);
             }
             if ($companyId) {
