@@ -336,9 +336,9 @@ class StockMutation
             $monthNow = $period->format('m');
             $yearNow = $period->format('Y');
             $dateNow = $period->format('d');
-            $monthPrev = $period->copy()->subDaye()->format('m');
-            $yearPrev = $period->copy()->subDaye()->format('Y');
-            $datePrev = $period->copy()->subDaye()->format('d');
+            $monthPrev = $period->copy()->subDay()->format('m');
+            $yearPrev = $period->copy()->subDay()->format('Y');
+            $datePrev = $period->copy()->subDay()->format('d');
 
             $totalMutationIn =  Mutation::where('stock_id', $stockId)
             ->whereMonth('date', $monthNow)
