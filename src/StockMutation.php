@@ -344,17 +344,17 @@ class StockMutation
             $totalMutationIn =  Mutation::where('stock_id', $stockId)
                 // ->whereMonth('date', $monthNow)
                 // ->whereYear('date', $yearNow)
-                // ->whereDate('date', $dateNow)
+                ->whereDate('date', $dateNow)
                 ->where('type', 'in')
-                ->latest()
+                // ->latest()
                 ->sum('qty');
 
             $totalMutationOut =  Mutation::where('stock_id', $stockId)
                 // ->whereMonth('date', $monthNow)
                 // ->whereYear('date', $yearNow)
-                // ->whereDate('date', $dateNow)
+                ->whereDate('date', $dateNow)
                 ->where('type', 'out')
-                ->latest()
+                // ->latest()
                 ->sum('qty');
 
             $openingStock = 0;
