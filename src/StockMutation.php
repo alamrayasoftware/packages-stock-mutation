@@ -357,7 +357,7 @@ class StockMutation
             $openingStock = 0;
             $stockPeriodPrev = StockPeriod::whereMonth('period', $monthPrev)
                 ->whereYear('period', $yearPrev)
-                ->whereDate('date',$datePrev)
+                ->whereDate('period',$datePrev)
                 ->first();
             if ($stockPeriodPrev) {
                 $openingStock = $stockPeriodPrev->closing_stock;
@@ -366,7 +366,7 @@ class StockMutation
             $stockPeriod = StockPeriod::where('stock_id', $stockId)
                 ->whereMonth('period', $monthNow)
                 ->whereYear('period', $yearNow)
-                ->whereDate('date',$datePrev)
+                ->whereDate('period',$datePrev)
                 ->first();
             if (!$stockPeriod) {
                 $stockPeriod = new StockPeriod();
