@@ -354,8 +354,8 @@ class StockMutation
                 ->sum('qty');
 
             $openingStock = 0;
-            $stockPeriodPrev = StockPeriod::whereDate('period', '!=', $period)
-                ->latest()
+            $stockPeriodPrev = StockPeriod::where('stock_id', $stockId)
+                ->whereDate('period', '!=', $period)
                 ->first();
 
             if ($stockPeriodPrev) {
