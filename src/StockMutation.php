@@ -92,7 +92,10 @@ class StockMutation
             $mutation->note = $note;
             $mutation->save();
 
-            $this->insertStockPeriode($stock->id, $date);
+            $insertStockPeriod = $this->insertStockPeriod($stock->id, $date);
+            if ($insertStockPeriod['status'] != 'success') {
+                throw new Exception($insertStockPeriod['message'], 400);
+            }
             $tempData = new stdClass();
             $tempData->curent_stock = $stock->qty;
 
@@ -189,7 +192,10 @@ class StockMutation
                 }
             }
             foreach ($listStockId as $key => $stockId) {
-                $this->insertStockPeriode($stockId, $date);
+                $insertStockPeriod = $this->insertStockPeriod($stockId, $date);
+                if ($insertStockPeriod['status'] != 'success') {
+                    throw new Exception($insertStockPeriod['message'], 400);
+                }
             }
             $tempData = new stdClass();
             $this->data = $tempData;
@@ -248,7 +254,10 @@ class StockMutation
                     throw new Exception("Delete mutation failed !", 500);
                 }
             }
-            $this->insertStockPeriode($mutation[0]->stock_id, $mutation[0]->date);
+            $insertStockPeriod = $this->insertStockPeriod($mutation[0]->stock_id, $mutation[0]->date);
+            if ($insertStockPeriod['status'] != 'success') {
+                throw new Exception($insertStockPeriod['message'], 400);
+            }
             DB::commit();
             return $this;
         } catch (\Throwable $th) {
@@ -329,40 +338,24 @@ class StockMutation
      * @param int $stockId stock id
      * @param string $period date period, date_format: Y-m-d
      */
-    public function insertStockPeriode($stockId, $period)
+    public function insertStockPeriod($stockId, $period)
     {
         try {
             $period = Carbon::parse($period);
 
-            $monthNow = $period->format('m');
-            $yearNow = $period->format('Y');
-            $dateNow = $period;
-            $monthPrev = $period->copy()->subDay()->format('m');
-            $yearPrev = $period->copy()->subDay()->format('Y');
-            $datePrev = $period->copy()->subDay();
-
             $totalMutationIn =  Mutation::where('stock_id', $stockId)
-                // ->whereMonth('date', $monthNow)
-                // ->whereYear('date', $yearNow)
-                ->whereDate('date', $dateNow)
+                ->whereDate('date', $period)
                 ->where('type', 'in')
-                // ->latest()
                 ->sum('qty');
 
             $totalMutationOut =  Mutation::where('stock_id', $stockId)
-                // ->whereMonth('date', $monthNow)
-                // ->whereYear('date', $yearNow)
-                ->whereDate('date', $dateNow)
+                ->whereDate('date', $period)
                 ->where('type', 'out')
-                // ->latest()
                 ->sum('qty');
 
             $openingStock = 0;
-            $stockPeriodPrev = StockPeriod::
-                // whereMonth('period', $monthPrev)
-                // ->whereYear('period', $yearPrev)
-                // whereDate('period', $datePrev)
-                latest()
+            $stockPeriodPrev = StockPeriod::whereDate('period', '!=', $period)
+                ->latest()
                 ->first();
 
             if ($stockPeriodPrev) {
@@ -370,33 +363,28 @@ class StockMutation
             }
 
             $stockPeriod = StockPeriod::where('stock_id', $stockId)
-                // ->whereMonth('period', $monthNow)
-                // ->whereYear('period', $yearNow)
-                // ->whereDate('period', $datePrev)
-                ->latest()
+                ->whereDate('period', $period)
                 ->first();
 
             if (!$stockPeriod) {
                 $stockPeriod = new StockPeriod();
+                $stockPeriod->stock_id = $stockId;
+                $stockPeriod->period = $period;
             }
 
-            $stockPeriod->stock_id = $stockId;
-            $stockPeriod->period = Carbon::now();
             $stockPeriod->opening_stock = $openingStock;
             $stockPeriod->total_stock_in = $totalMutationIn;
             $stockPeriod->total_stock_out = $totalMutationOut;
             $stockPeriod->closing_stock = $openingStock + ($totalMutationIn - $totalMutationOut);
             $stockPeriod->save();
-            return 'success';
-            // if ($period->copy()->eq(Carbon::now()) || $period->copy()->gt(Carbon::now())) {
-            //     return 'success';
-            // } else {
-            //     $this->insertStockPeriode($stockId, $period->copy()->subDay());
-            // }
+            return [
+                'status' => 'success'
+            ];
         } catch (\Throwable $th) {
-            $this->status = 'error';
-            $this->errorMessage = $th->getMessage();
-            return $this;
+            return [
+                'status' => 'error',
+                'message' => $th->getMessage()
+            ];
         }
     }
 
