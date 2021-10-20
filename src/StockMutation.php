@@ -118,6 +118,7 @@ class StockMutation
      * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
      * @param string $note description
+     * @param bool $allowMinus allow stock qty to minus
      */
     public function mutationOut(
         int $itemId,
@@ -125,8 +126,9 @@ class StockMutation
         float $qty,
         string $date,
         int $companyId = null,
-        String $reference = null,
-        String $note = null
+        string $reference = null,
+        string $note = null,
+        bool $allowMinus = false
     ) {
         DB::beginTransaction();
         try {
@@ -134,24 +136,45 @@ class StockMutation
 
             $stock = Stock::where('company_id', $companyId)
                 ->where('position_id', $position)
-                ->where('item_id', $itemId)
-                ->where('qty', '>', 0)
-                ->get();
+                ->where('item_id', $itemId);
 
-            if (count($stock) <= 0) {
-                throw new Exception("Stock not found !", 404);
+            if (!$allowMinus) {
+                $stock = $stock->where('qty', '>', 0)->get();
+                if (count($stock) <= 0) {
+                    throw new Exception("Stock not found !", 404);
+                }
+            } else {
+                $stock = $stock->get();
+                if (count($stock) <= 0) {
+                    // create new stock
+                    $stock = new Stock();
+                    $stock->company_id = $companyId;
+                    $stock->item_id = $itemId;
+                    $stock->position_id = $position;
+                    $stock->qty = 0;
+                    $stock->save();
+                    // get list stock
+                    $stock = Stock::where('company_id', $companyId)
+                        ->where('position_id', $position)
+                        ->where('item_id', $itemId)
+                        ->get();
+                }
             }
 
             $requestedQty = $qty;
             $currentStock = $stock->sum('qty');
-            if ($currentStock < $requestedQty) {
+            // validate allow-minus qty
+            if ($currentStock < $requestedQty && !$allowMinus) {
                 throw new Exception("Insufficient stock !", 400);
             }
 
             $listStockId = $stock->pluck('id')->all();
-            $mutations = Mutation::whereIn('stock_id', $listStockId)
-                ->whereRaw('(qty - used) > 0')
-                ->where('type', 'in')
+            $mutations = Mutation::whereIn('stock_id', $listStockId);
+            // validate allow-minus qty
+            if (!$allowMinus) {
+                $mutations = $mutations->whereRaw('(qty - used) > 0');
+            }
+            $mutations = $mutations->where('type', 'in')
                 ->select(DB::raw('sum(qty - used) as remaining_qty'), 'id', 'qty', 'used', 'stock_id')
                 ->with('stock')
                 ->groupBy('id', 'qty', 'used', 'stock_id')
@@ -160,7 +183,7 @@ class StockMutation
 
             foreach ($mutations as $mutation) {
                 $usedQty = 0;
-                if ($requestedQty < $mutation->remaining_qty) {
+                if ($requestedQty < $mutation->remaining_qty || $allowMinus) {
                     $usedQty = $requestedQty;
                 } else {
                     $usedQty = $mutation->remaining_qty;
