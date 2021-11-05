@@ -408,8 +408,6 @@ class StockMutation
                 ->first();
             if ($nextPeriod) {
                 $this->syncStockPeriod($stockId, $nextPeriod->period);
-                // foreach ($nextPeriods as $key => $nextPeriod) {
-                // }
             }
 
             return [
