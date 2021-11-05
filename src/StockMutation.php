@@ -92,9 +92,9 @@ class StockMutation
             $mutation->note = $note;
             $mutation->save();
 
-            $insertStockPeriod = $this->insertStockPeriod($stock->id, $date);
-            if ($insertStockPeriod['status'] != 'success') {
-                throw new Exception($insertStockPeriod['message'], 400);
+            $syncStockPeriod = $this->syncStockPeriod($stock->id, $date);
+            if ($syncStockPeriod['status'] != 'success') {
+                throw new Exception($syncStockPeriod['message'], 400);
             }
             $tempData = new stdClass();
             $tempData->curent_stock = $stock->qty;
@@ -192,9 +192,9 @@ class StockMutation
                 }
             }
             foreach ($listStockId as $key => $stockId) {
-                $insertStockPeriod = $this->insertStockPeriod($stockId, $date);
-                if ($insertStockPeriod['status'] != 'success') {
-                    throw new Exception($insertStockPeriod['message'], 400);
+                $syncStockPeriod = $this->syncStockPeriod($stockId, $date);
+                if ($syncStockPeriod['status'] != 'success') {
+                    throw new Exception($syncStockPeriod['message'], 400);
                 }
             }
             $tempData = new stdClass();
@@ -254,9 +254,9 @@ class StockMutation
                     throw new Exception("Delete mutation failed !", 500);
                 }
             }
-            $insertStockPeriod = $this->insertStockPeriod($mutation[0]->stock_id, $mutation[0]->date);
-            if ($insertStockPeriod['status'] != 'success') {
-                throw new Exception($insertStockPeriod['message'], 400);
+            $syncStockPeriod = $this->syncStockPeriod($mutation[0]->stock_id, $mutation[0]->date);
+            if ($syncStockPeriod['status'] != 'success') {
+                throw new Exception($syncStockPeriod['message'], 400);
             }
             DB::commit();
             return $this;
@@ -338,24 +338,25 @@ class StockMutation
      * @param int $stockId stock id
      * @param string $period date period, date_format: Y-m-d
      */
-    public function insertStockPeriod($stockId, $period)
+    public function syncStockPeriod($stockId, $period)
     {
         try {
             $period = Carbon::parse($period);
 
-            $totalMutationIn =  Mutation::where('stock_id', $stockId)
+            $totalMutationIn = Mutation::where('stock_id', $stockId)
                 ->whereDate('date', $period)
                 ->where('type', 'in')
                 ->sum('qty');
 
-            $totalMutationOut =  Mutation::where('stock_id', $stockId)
+            $totalMutationOut = Mutation::where('stock_id', $stockId)
                 ->whereDate('date', $period)
                 ->where('type', 'out')
                 ->sum('qty');
 
             $openingStock = 0;
             $stockPeriodPrev = StockPeriod::where('stock_id', $stockId)
-                ->whereDate('period', '!=', $period)
+                ->whereDate('period', '<', $period)
+                ->latest('period')
                 ->first();
 
             if ($stockPeriodPrev) {
@@ -377,6 +378,17 @@ class StockMutation
             $stockPeriod->total_stock_out = $totalMutationOut;
             $stockPeriod->closing_stock = $openingStock + ($totalMutationIn - $totalMutationOut);
             $stockPeriod->save();
+
+            $nextPeriods = StockPeriod::where('stock_id', $stockId)
+                ->whereDate('period', '>', $period)
+                ->orderBy('period', 'ASC')
+                ->get();
+            if (count($nextPeriods) > 0) {
+                foreach ($nextPeriods as $key => $nextPeriod) {
+                    $this->syncStockPeriod($stockId, $nextPeriod->period);
+                }
+            }
+
             return [
                 'status' => 'success'
             ];
