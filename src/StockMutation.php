@@ -402,14 +402,14 @@ class StockMutation
             $stockPeriod->closing_stock = $openingStock + ($totalMutationIn - $totalMutationOut);
             $stockPeriod->save();
 
-            $nextPeriods = StockPeriod::where('stock_id', $stockId)
+            $nextPeriod = StockPeriod::where('stock_id', $stockId)
                 ->whereDate('period', '>', $period)
                 ->orderBy('period', 'ASC')
-                ->get();
-            if (count($nextPeriods) > 0) {
-                foreach ($nextPeriods as $key => $nextPeriod) {
-                    $this->syncStockPeriod($stockId, $nextPeriod->period);
-                }
+                ->first();
+            if ($nextPeriod) {
+                $this->syncStockPeriod($stockId, $nextPeriod->period);
+                // foreach ($nextPeriods as $key => $nextPeriod) {
+                // }
             }
 
             return [
