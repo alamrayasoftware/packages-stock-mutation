@@ -181,6 +181,7 @@ class StockMutation
                 ->oldest()
                 ->get();
 
+            $cogsValue = 0;
             foreach ($mutations as $mutation) {
                 $usedQty = 0;
                 if ($requestedQty < $mutation->remaining_qty || $allowMinus) {
@@ -193,6 +194,8 @@ class StockMutation
                 $updateMutation->used += $usedQty;
                 $updateMutation->update();
 
+                $cogsValue += ( $updateMutation->hpp * $usedQty );
+
                 $updateStock = Stock::where('id', $updateMutation->stock_id)->first();
                 $updateStock->qty -= $usedQty;
                 $updateStock->update();
@@ -204,6 +207,7 @@ class StockMutation
                 $newMutation->used = 0;
                 $newMutation->mutation_reference_id = $updateMutation->id;
                 $newMutation->trx_reference = $reference;
+                $newMutation->hpp = $updateMutation->hpp;
                 $newMutation->type = 'out';
                 $newMutation->note = $note;
                 $newMutation->save();
@@ -221,6 +225,7 @@ class StockMutation
                 }
             }
             $tempData = new stdClass();
+            $tempData->cogs = $cogsValue;
             $this->data = $tempData;
 
             DB::commit();
