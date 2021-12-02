@@ -118,7 +118,7 @@ class StockMutation
      * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
      * @param string $note description
-     * @param bool $allowMinus allow stock qty to minus
+     * @param bool|null $allowMinus allow stock qty to minus
      */
     public function mutationOut(
         int $itemId,
@@ -128,7 +128,7 @@ class StockMutation
         int $companyId = null,
         string $reference = null,
         string $note = null,
-        bool $allowMinus = false
+        $allowMinus = false
     ) {
         DB::beginTransaction();
         try {
