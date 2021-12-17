@@ -97,6 +97,7 @@ class StockMutation
                 throw new Exception($syncStockPeriod['message'], 400);
             }
             $tempData = new stdClass();
+            $tempData->model = $mutation;
             $tempData->curent_stock = $stock->qty;
 
             $this->data = $tempData;
@@ -182,6 +183,7 @@ class StockMutation
                 ->get();
 
             $cogmValue = 0;
+            $listModelMutation = [];
             foreach ($mutations as $mutation) {
                 $usedQty = 0;
                 if ($requestedQty < $mutation->remaining_qty || $allowMinus) {
@@ -211,7 +213,7 @@ class StockMutation
                 $newMutation->type = 'out';
                 $newMutation->note = $note;
                 $newMutation->save();
-
+                array_push($listModelMutation,$newMutation);
                 $requestedQty -= $usedQty;
 
                 if ($requestedQty <= 0) {
@@ -226,6 +228,8 @@ class StockMutation
             }
             $tempData = new stdClass();
             $tempData->cogm = $cogmValue;
+            $tempData->model = $listModelMutation;
+            
             $this->data = $tempData;
 
             DB::commit();
