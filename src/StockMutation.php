@@ -468,6 +468,33 @@ class StockMutation
             return $this;
         }
     }
+    
+     /**
+     * @param int $itemId item id
+     * @param string $reference refrence
+     */
+    public function usedStock(
+        $itemId = null,
+        $reference = null,
+    ) {
+        try {
+            $totalUsed = Mutation::where('trx_reference', $reference)
+            ->whereHas('stock',function($q) use($itemId){
+                $q->where('item_id',$itemId);
+            })
+            ->value('used');
+
+            $tempData = new stdClass();
+            $tempData->used_stock = $totalUsed;
+
+            $this->data = $tempData;
+            return $this;
+        } catch (\Throwable $th) {
+            $this->status = 'error';
+            $this->errorMessage = $th->getMessage();
+            return $this;
+        }
+    }
 
     public function formatDate($date)
     {
