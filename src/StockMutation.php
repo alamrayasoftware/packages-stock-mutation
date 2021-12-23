@@ -251,7 +251,8 @@ class StockMutation
         try {
             $mutation = Mutation::where('trx_reference', $reference)->get();
             if (count($mutation) < 1) {
-                throw new Exception("Data not found", 400);
+                // nota not found
+                return $this;
             }
 
             foreach ($mutation as $value) {
