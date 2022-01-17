@@ -252,6 +252,7 @@ class StockMutation
             $mutation = Mutation::where('trx_reference', $reference)->get();
             if (count($mutation) < 1) {
                 // nota not found
+                DB::commit();
                 return $this;
             }
 
