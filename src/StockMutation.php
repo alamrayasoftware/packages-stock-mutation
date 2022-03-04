@@ -413,22 +413,23 @@ class StockMutation
             $stockPeriod->closing_stock = $openingStock + ($totalMutationIn - $totalMutationOut);
             $stockPeriod->save();
 
-            $nextPeriod = StockPeriod::where('stock_id', $stockId)
-                ->whereDate('period', '>', $period)
-                ->orderBy('period', 'ASC')
+            // new: next period
+            $nextPeriod = Mutation::where('stock_id', $stockId)
+                ->whereDate('date', '>', $period)
+                ->orderBy('date', 'ASC')
                 ->first();
             if ($nextPeriod) {
-                $this->syncStockPeriod($stockId, $nextPeriod->period);
+                $this->syncStockPeriod($stockId, $nextPeriod->date);
+                if ($this->status == 'error') {
+                    throw new Exception($this->errorMessage, 500);
+                }
             }
 
-            return [
-                'status' => 'success'
-            ];
+            return $this;
         } catch (\Throwable $th) {
-            return [
-                'status' => 'error',
-                'message' => $th->getMessage()
-            ];
+            $this->status = 'error';
+            $this->errorMessage = $th->getMessage();
+            return $this;
         }
     }
 
