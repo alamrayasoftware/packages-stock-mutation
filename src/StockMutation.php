@@ -419,17 +419,20 @@ class StockMutation
                 ->orderBy('date', 'ASC')
                 ->first();
             if ($nextPeriod) {
-                $this->syncStockPeriod($stockId, $nextPeriod->date);
-                if ($this->status == 'error') {
-                    throw new Exception($this->errorMessage, 500);
+                $syncStockPeriod = $this->syncStockPeriod($stockId, $nextPeriod->date);
+                if ($syncStockPeriod['status'] != 'success') {
+                    throw new Exception($syncStockPeriod['message'], 400);
                 }
             }
 
-            return $this;
+            return [
+                'status' => 'success'
+            ];
         } catch (\Throwable $th) {
-            $this->status = 'error';
-            $this->errorMessage = $th->getMessage();
-            return $this;
+            return [
+                'status' => 'error',
+                'message' => $th->getMessage()
+            ];
         }
     }
 
