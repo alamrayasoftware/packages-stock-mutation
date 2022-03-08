@@ -115,7 +115,7 @@ class StockMutation
      * @param int $itemId item id
      * @param int $position item position  / warehouse id
      * @param float $qty quantity, exp: 12000.57
-     * @param string $date transaction date, format: Y-m-d
+     * @param string $date transaction date, format: Y-m-d || Carbon::class
      * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
      * @param string $note description
@@ -135,18 +135,21 @@ class StockMutation
         try {
             $date = Carbon::parse($date);
 
-            $stock = Stock::where('company_id', $companyId)
+            // get current stock
+            $currentStock = $this->getCurrentStock($itemId, $companyId, $position, null, $date);
+
+            $stocks = Stock::where('company_id', $companyId)
                 ->where('position_id', $position)
                 ->where('item_id', $itemId);
 
             if (!$allowMinus) {
-                $stock = $stock->where('qty', '>', 0)->get();
-                if (count($stock) <= 0) {
+                $stocks = $stocks->where('qty', '>', 0)->get();
+                if (count($stocks) <= 0) {
                     throw new Exception("Stock not found !", 404);
                 }
             } else {
-                $stock = $stock->get();
-                if (count($stock) <= 0) {
+                $stocks = $stocks->get();
+                if (count($stocks) <= 0) {
                     // create new stock
                     $stock = new Stock();
                     $stock->company_id = $companyId;
@@ -155,21 +158,20 @@ class StockMutation
                     $stock->qty = 0;
                     $stock->save();
                     // get list stock
-                    $stock = Stock::where('company_id', $companyId)
+                    $stocks = Stock::where('company_id', $companyId)
                         ->where('position_id', $position)
                         ->where('item_id', $itemId)
                         ->get();
                 }
             }
-
-            $requestedQty = $qty;
-            $currentStock = $stock->sum('qty');
+            
             // validate allow-minus qty
+            $requestedQty = $qty;
             if ($currentStock < $requestedQty && !$allowMinus) {
                 throw new Exception("Insufficient stock !", 400);
             }
 
-            $listStockId = $stock->pluck('id')->all();
+            $listStockId = $stocks->pluck('id')->all();
             $mutations = Mutation::whereIn('stock_id', $listStockId);
             // validate allow-minus qty
             if (!$allowMinus) {
@@ -440,31 +442,22 @@ class StockMutation
      * @param int $itemId item id
      * @param int $position item position / warehouse id
      * @param int $companyId company id
+     * @param sring $expiredDate selected expired date, format: Y-m-d
+     * @param sring $date selected date, format: Y-m-d || Carbon::class
      */
     public function currentStock(
         $itemId = null,
         $companyId = null,
-        $positionId = null
+        $positionId = null,
+        $expiredDate = null,
+        $date = null
     ) {
         try {
-            $stock = Stock::orderBy('expired_date');
-
-            if ($itemId) {
-                $stock = $stock->where('item_id', $itemId);
-            }
-            if ($companyId) {
-                $stock = $stock->where('company_id', $companyId);
-            }
-            if ($positionId) {
-                $stock = $stock->where('position_id', $positionId);
-            }
-            $stock = $stock->get();
-
-            $totalStock = $stock->sum('qty');
+            $totalStock = $this->getCurrentStock($itemId, $companyId, $positionId, $expiredDate, $date);
 
             $tempData = new stdClass();
             $tempData->curent_stock = $totalStock;
-            $tempData->list_stock = $stock;
+            $tempData->list_stock = [];
 
             $this->data = $tempData;
             return $this;
@@ -473,6 +466,73 @@ class StockMutation
             $this->errorMessage = $th->getMessage();
             return $this;
         }
+    }
+
+    /**
+     * get current stock qty
+     * 
+     * @param int $itemId item id
+     * @param int $companyId company id
+     * @param int $positionId item position / warehouse id
+     * @param sring $expiredDate selected expired date, format: Y-m-d || Carbon::class
+     * @param sring $date selected date, format: Y-m-d || Carbon::class, default: now()
+     * 
+     * @return float $qty
+     */
+    private function getCurrentStock(
+        $itemId = null,
+        $companyId = null,
+        $positionId = null,
+        $expiredDate = null,
+        $date = null
+    )
+    {
+        $totalStock = 0;
+
+        $stock = Stock::orderBy('expired_date');
+        // filter item-id
+        if ($itemId) {
+            $stock = $stock->where('item_id', $itemId);
+        } else {
+            $stock = $stock->whereNull('item_id');
+        }
+        // filter company
+        if ($companyId) {
+            $stock = $stock->where('company_id', $companyId);
+        } else {
+            $stock = $stock->whereNull('company_id');
+        }
+        // filter position
+        if ($positionId) {
+            $stock = $stock->where('position_id', $positionId);
+        } else {
+            $stock = $stock->whereNull('position_id');
+        }
+        // filter expired date
+        if ($expiredDate) {
+            $expiredDate = now()->parse($expiredDate);
+            $stock = $stock->whereDate('expired_date', $expiredDate);
+        } else {
+            $stock = $stock->whereNull('expired_date');
+        }
+        // retrive data
+        $stock = $stock->first();
+
+        if ($stock) {
+            // old
+            $totalStock = $stock->qty;
+
+            // new 
+            $date = now()->parse($date ?? now());
+            $currentStockPeriod = StockPeriod::where('stock_id', $stock->id)
+                ->whereDate('period', $date)
+                ->first();
+            if ($currentStockPeriod) {
+                $totalStock = $currentStockPeriod->closing_stock;
+            }
+        }
+
+        return $totalStock;        
     }
     
      /**
