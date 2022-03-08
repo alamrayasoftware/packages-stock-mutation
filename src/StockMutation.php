@@ -119,7 +119,8 @@ class StockMutation
      * @param int $companyId company id
      * @param string $reference nota / reference number / transaction number
      * @param string $note description
-     * @param bool|null $allowMinus allow stock qty to minus
+     * @param bool|null $allowMinus allow stock qty to a minus value
+     * @param string $costType cost type : FIFO / LIFO
      */
     public function mutationOut(
         int $itemId,
@@ -129,7 +130,8 @@ class StockMutation
         int $companyId = null,
         string $reference = null,
         string $note = null,
-        $allowMinus = false
+        $allowMinus = false,
+        $costType = 'FIFO'
     ) {
         DB::beginTransaction();
         try {
@@ -179,9 +181,16 @@ class StockMutation
             $mutations = $mutations->where('type', 'in')
                 ->select(DB::raw('sum(qty - used) as remaining_qty'), 'id', 'qty', 'used', 'stock_id')
                 ->with('stock')
-                ->groupBy('id', 'qty', 'used', 'stock_id')
-                ->oldest()
-                ->get();
+                ->groupBy('id', 'qty', 'used', 'stock_id');
+
+            // condition cost type, FIFO/LIFO
+            if ($costType == 'FIFO') {
+                $mutations = $mutations->oldest();
+            } else {
+                $mutations = $mutations->latest();
+            }
+
+            $mutations = $mutations->get();
 
             $cogmValue = 0;
             $listModelMutation = [];
