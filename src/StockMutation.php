@@ -135,9 +135,6 @@ class StockMutation
         try {
             $date = Carbon::parse($date);
 
-            // get current stock
-            $currentStock = $this->getCurrentStock($itemId, $companyId, $position, null, $date);
-
             $stocks = Stock::where('company_id', $companyId)
                 ->where('position_id', $position)
                 ->where('item_id', $itemId);
@@ -164,7 +161,9 @@ class StockMutation
                         ->get();
                 }
             }
-            
+
+            $currentStock = $this->getCurrentStock($itemId, $companyId, $position, null, null);
+
             // validate allow-minus qty
             $requestedQty = $qty;
             if ($currentStock < $requestedQty && !$allowMinus) {
@@ -522,14 +521,14 @@ class StockMutation
             // old
             $totalStock = $stock->qty;
 
-            // new 
-            $date = now()->parse($date ?? now());
-            $currentStockPeriod = StockPeriod::where('stock_id', $stock->id)
-                ->whereDate('period', $date)
-                ->first();
-            if ($currentStockPeriod) {
-                $totalStock = $currentStockPeriod->closing_stock;
-            }
+            // // new ( unused for now )
+            // $date = now()->parse($date ?? now());
+            // $currentStockPeriod = StockPeriod::where('stock_id', $stock->id)
+            //     ->whereDate('period', $date)
+            //     ->first();
+            // if ($currentStockPeriod) {
+            //     $totalStock = $currentStockPeriod->closing_stock;
+            // }
         }
 
         return $totalStock;        
