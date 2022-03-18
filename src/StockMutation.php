@@ -254,6 +254,9 @@ class StockMutation
 
     /**
      * @param string $reference nota / reference number / transaction number
+     * 
+     * @return this
+     * models[] --> list of related models for mutation-out
      */
     public function rollBack(String $reference)
     {
@@ -266,15 +269,19 @@ class StockMutation
                 return $this;
             }
 
+            $relatedModels = [];
             foreach ($mutation as $value) {
                 if ($value->type == 'out') {
-                    // update mutation where value of trx_reference
+                    // update mutation where value of mutation_reference_id
                     $trxReference = Mutation::where('id', $value->mutation_reference_id)->first();
                     if (!$trxReference) {
                         throw new Exception("Mutation reference not found !", 404);
                     }
                     $trxReference->used = ($trxReference->used - $value->qty);
                     $trxReference->update();
+                    
+                    // push related models to stack
+                    array_push($relatedModels, $trxReference);
 
                     // update curent stock
                     $stock = Stock::where('id', $value->stock_id)->first();
@@ -302,6 +309,12 @@ class StockMutation
             if ($syncStockPeriod['status'] != 'success') {
                 throw new Exception($syncStockPeriod['message'], 400);
             }
+
+            $tempData = new stdClass();
+            $tempData->models = $relatedModels;
+
+            $this->data = $tempData;
+            
             DB::commit();
             return $this;
         } catch (\Throwable $th) {
