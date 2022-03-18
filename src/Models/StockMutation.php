@@ -9,4 +9,9 @@ class StockMutation extends Model
     {
         return $this->belongsTo(Stock::class,'stock_id','id');
     }
+
+    public function mutationable()
+    {
+        return $this->morphTo();
+    }
 }
